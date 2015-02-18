@@ -78,7 +78,15 @@ class ThermoCorrections(ReactionModelWrapper):
             self._required[corr+'_thermo_mode'] = str
             self.thermodynamic_variables.append(corr+'_thermo_mode')
 
+
     def get_thermodynamic_corrections(self,**kwargs):
+        # we need to ensure electrochemical corrections are added last since they
+        # may rely on free energies of other species
+        l = self.thermodynamic_corrections
+        if 'electrochemical' in l and len(self.echem_transition_state_names) > 0:
+            self.force_recalculation = True
+            l.insert(len(l), l.pop(l.index('electrochemical')))
+
         state_dict = {}
         for v in self.thermodynamic_variables:
             state_dict[v] = getattr(self,v)
@@ -87,7 +95,6 @@ class ThermoCorrections(ReactionModelWrapper):
                 state_dict[key] = kwargs[key]
         current_state = [repr(state_dict[v]) 
                 for v in self.thermodynamic_variables]
-
         for sp in self.species_definitions:
             self.frequency_dict[sp] = \
                     self.species_definitions[sp].get('frequencies',[])
@@ -101,8 +108,13 @@ class ThermoCorrections(ReactionModelWrapper):
                 ): #if the thermodynamic state (and frequencies) 
             #has not changed then don't bother re-calculating the corrections.
             return self._correction_dict
+        self._correction_dict = correction_dict
+        self._current_state = current_state
+        self._frequency_dict = frequency_dict
+
 
         # apply corrections in self.thermodynamic_corrections on top of each other
+        print self.thermodynamic_corrections
         for correction in self.thermodynamic_corrections:
             mode = getattr(self,correction+'_thermo_mode')
             thermo_dict = getattr(self,mode)()
@@ -114,9 +126,7 @@ class ThermoCorrections(ReactionModelWrapper):
 
         getattr(self,self.pressure_mode+'_pressure')()
 
-        self._correction_dict = correction_dict
-        self._current_state = current_state
-        self._frequency_dict = frequency_dict
+
         return correction_dict
 
     def ideal_gas(self):
@@ -445,10 +455,11 @@ class ThermoCorrections(ReactionModelWrapper):
     def simple_electrochemical(self):
         thermo_dict = {}
         gas_names = [gas for gas in self.gas_names if 'pe' in gas]
-        adsorbate_names = self.adsorbate_names
         TS_names = [TS for TS in self.transition_state_names if 'pe' in TS]
         voltage = self.voltage
         beta = self.beta
+
+        # print reaction_model._electronic_energy_dict, reaction_model._correction_dict
 
         # scale pe thermo correction by voltage (vs RHE)
         for gas in gas_names:
@@ -464,7 +475,6 @@ class ThermoCorrections(ReactionModelWrapper):
 
     def hbond_electrochemical(self):
         thermo_dict = self.simple_electrochemical()
-        adsorbate_names = self.adsorbate_names
         TS_names = [TS for TS in self.transition_state_names if 'pe' in TS]
 
         hbond_dict = self.hbond_dict

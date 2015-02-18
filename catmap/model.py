@@ -355,6 +355,8 @@ class ReactionModel:
 
         self.load_data_file()
 
+        self.generate_echem_TS()
+
         self.verify()
 
     def load_data_file(self,overwrite=False):
@@ -410,7 +412,8 @@ class ReactionModel:
         adsorbate_names = []
         transition_state_names = []
         site_names = []
-        for eq in equations:
+        echem_transition_state_names = []
+        for rxn_index, eq in enumerate(equations):
             #Replace separators with ' '
             regex = re.compile(regular_expressions['species_separator'][0])
             eq = regex.sub(' ',eq)
@@ -422,6 +425,18 @@ class ReactionModel:
                 state_str = state_dict[key]
                 if state_str:
                     state_strings = [si for si in state_str.split() if si]
+                    # echem transition state syntax parsing. generate echem transition state from TS like "^0.6eV_a"
+                    if key == 'transition_state' and len(state_strings) == 1 and state_strings[0].startswith('^'):
+                        try:
+                            preamble, site = state_strings[0].split('_')
+                            barrier = preamble.lstrip('^').rstrip('eV')
+                            echem_TS_name = '-'.join(["echemTS", str(rxn_index), barrier]) + "_" + site
+                            rxn_list.append([echem_TS_name])
+                            echem_transition_state_names.append(echem_TS_name)
+                            continue
+                        except:
+                            raise ValueError('improper specification of electrochemical transition state.  should be\
+                                of the form "^0.6eV_a" for an 0.6 eV barrier on site a')
                     for st in state_strings:
                         species_dict = functions.match_regex(st,
                                 *regular_expressions['species_definition'])
@@ -482,6 +497,7 @@ class ReactionModel:
         self.transition_state_names = sort_list(transition_state_names)
         self.elementary_rxns = elementary_rxns
         self.site_names = site_names
+        self.echem_transition_state_names = echem_transition_state_names
 
     def texify(self,ads): #
         sub_nums = [str(n) for n in range(2,15)]
@@ -718,19 +734,23 @@ class ReactionModel:
                 TS = IS
             else:
                 IS,TS,FS = rxn
-            if composition(IS) == composition(TS) == composition(FS):
+            # ignore echemTS stuff - we'll make our fake TS in the parser module
+            if 'echemTS' in TS[0]:
                 pass
             else:
-                raise ValueError('Mass balance is not satisfied for ' + \
-                        self.print_rxn(rxn,mode='text'))
-            if composition(IS,'sites') == composition(TS,'sites') == \
-                    composition(FS,'sites'):
-                pass
-            else:
-                raise ValueError('Site balance is not satisfied for ' + \
-                        self.print_rxn(rxn,mode='text')+'. Make sure to '+\
-                        'set n_sites in species_definitions for species '+\
-                        'occupying more than 1 site')
+                if composition(IS) == composition(TS) == composition(FS):
+                    pass
+                else:
+                    raise ValueError('Mass balance is not satisfied for ' + \
+                            self.print_rxn(rxn,mode='text'))
+                if composition(IS,'sites') == composition(TS,'sites') == \
+                        composition(FS,'sites'):
+                    pass
+                else:
+                    raise ValueError('Site balance is not satisfied for ' + \
+                            self.print_rxn(rxn,mode='text')+'. Make sure to '+\
+                            'set n_sites in species_definitions for species '+\
+                            'occupying more than 1 site')
         #Check that frequencies are defined if necessary
 
         #Check prefactor_list is in the right format
@@ -996,3 +1016,41 @@ class ReactionModel:
         f = open('stand_alone.py','w')
         f.write(txt)
         f.close()
+
+    def generate_echem_TS(self):
+        """takes a self.echem_transition_state_names of the form echemTS-X-Y_a, where
+        X is the reaction index and Y is the electrochemical barrier at rxn dE=0 in eV,
+        and a is the site name, and generates a species_definitions entry for it"""
+        for echem_TS in self.echem_transition_state_names:
+            preamble, site = echem_TS.split('_')
+            echem, rxn_index, barrier = preamble.split('-')
+            rxn_index = int(rxn_index)
+            barrier = float(barrier)
+            self.species_definitions[echem_TS] = {}
+            self.species_definitions[echem_TS]['type'] = 'transition_state'
+            self.species_definitions[echem_TS]['site'] = site
+            self.species_definitions[echem_TS]['formation_energy_source'] = ["Generated by CatMAP"]
+            self.species_definitions[echem_TS]['formation_energy'] = [0.]
+            self.species_definitions[echem_TS]['frequencies'] = []
+            self.species_definitions[echem_TS]['name'] = preamble
+            self.species_definitions[echem_TS]['n_sites'] = 1  # Someone may want to change this to be user-specified at some point
+
+            # look up what IS and FS of rxn_index are
+            regex = re.compile(regular_expressions['species_separator'][0])
+            eq = regex.sub(' ',self.rxn_expressions[rxn_index])
+            state_dict = functions.match_regex(eq,
+                *regular_expressions['initial_transition_final_states'])
+            IS_species = [si for si in state_dict['initial_state'].split(' ') if si]
+            FS_species = [si for si in state_dict['final_state'].split(' ') if si]
+            # assume composition is already balanced - set TS composition to IS composition
+            total_composition = {}
+            for species in IS_species:
+                for key, value in self.species_definitions[species]['composition'].iteritems():
+                    if key in total_composition:
+                        total_composition[key] += value
+                    else:
+                        total_composition[key] = value
+
+        # add echem TSs to regular TSes
+        # print self.transition_state_names, self.echem_transition_state_names
+        self.transition_state_names += tuple(self.echem_transition_state_names)
