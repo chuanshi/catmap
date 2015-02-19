@@ -86,7 +86,6 @@ class ThermoCorrections(ReactionModelWrapper):
         if 'electrochemical' in l and len(self.echem_transition_state_names) > 0:
             self.force_recalculation = True
             l.insert(len(l), l.pop(l.index('electrochemical')))
-
         state_dict = {}
         for v in self.thermodynamic_variables:
             state_dict[v] = getattr(self,v)
@@ -114,7 +113,6 @@ class ThermoCorrections(ReactionModelWrapper):
 
 
         # apply corrections in self.thermodynamic_corrections on top of each other
-        print self.thermodynamic_corrections
         for correction in self.thermodynamic_corrections:
             mode = getattr(self,correction+'_thermo_mode')
             thermo_dict = getattr(self,mode)()
@@ -456,10 +454,9 @@ class ThermoCorrections(ReactionModelWrapper):
         thermo_dict = {}
         gas_names = [gas for gas in self.gas_names if 'pe' in gas]
         TS_names = [TS for TS in self.transition_state_names if 'pe' in TS]
+        echem_TS_names = self.echem_transition_state_names
         voltage = self.voltage
         beta = self.beta
-
-        # print reaction_model._electronic_energy_dict, reaction_model._correction_dict
 
         # scale pe thermo correction by voltage (vs RHE)
         for gas in gas_names:
@@ -470,6 +467,30 @@ class ThermoCorrections(ReactionModelWrapper):
         # correct TS energies with beta*voltage (and hbonding?)
         for TS in TS_names:
             thermo_dict[TS] = -voltage * (1 - beta)
+
+        # give real energies to the fake echem transition state
+        def get_E_to_G(state, E_to_G_dict):
+            E_to_G = 0.
+            for ads in state:
+                if ads in E_to_G_dict:
+                    E_to_G += E_to_G_dict[ads]
+            return E_to_G
+
+        for echem_TS in echem_TS_names:
+            preamble, site = echem_TS.split('_')
+            echem, rxn_index, barrier = preamble.split('-')
+            rxn = self.elementary_rxns[int(rxn_index)]
+            IS = rxn[0]
+            FS = rxn[-1]
+            E_IS = self.get_state_energy(IS, self._electronic_energy_dict)
+            E_FS = self.get_state_energy(FS, self._electronic_energy_dict)
+            G_IS = E_IS + get_E_to_G(IS, self._correction_dict)
+            G_FS = E_FS + get_E_to_G(FS, self._correction_dict)            
+            dG = G_FS - G_IS
+            G_TS = G_IS + float(barrier) + (1 - beta) * dG  # G_TS @ 0V vs RHE
+            G_TS += -voltage * (1 - beta)  #  same scaling for fake TS as real ones
+            assert(self._electronic_energy_dict[echem_TS]) == 0.  # make sure we're "correcting" correctly
+            thermo_dict[echem_TS] = G_TS
 
         return thermo_dict
 
