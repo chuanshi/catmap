@@ -482,7 +482,6 @@ class MeanFieldSolver(SolverBase):
 
         def species_strings(state_list,list_name,include_constants=True,type='list'):
             species_strs = []
-            # print state_list, idx_dict
             for species in state_list:
                 if species in idx_dict:
                     if type == 'list':

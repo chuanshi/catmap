@@ -78,7 +78,6 @@ class ThermoCorrections(ReactionModelWrapper):
             self._required[corr+'_thermo_mode'] = str
             self.thermodynamic_variables.append(corr+'_thermo_mode')
 
-
     def get_thermodynamic_corrections(self,**kwargs):
         # we need to ensure electrochemical corrections are added last since they
         # may rely on free energies of other species
@@ -94,6 +93,7 @@ class ThermoCorrections(ReactionModelWrapper):
                 state_dict[key] = kwargs[key]
         current_state = [repr(state_dict[v]) 
                 for v in self.thermodynamic_variables]
+
         for sp in self.species_definitions:
             self.frequency_dict[sp] = \
                     self.species_definitions[sp].get('frequencies',[])
@@ -489,7 +489,7 @@ class ThermoCorrections(ReactionModelWrapper):
             dG = G_FS - G_IS
             G_TS = G_IS + float(barrier) + (1 - beta) * dG  # G_TS @ 0V vs RHE
             G_TS += -voltage * (1 - beta)  #  same scaling for fake TS as real ones
-            assert(self._electronic_energy_dict[echem_TS]) == 0.  # make sure we're "correcting" correctly
+            assert(self._electronic_energy_dict[echem_TS]) == 0.  # make sure we're "correcting" the right value
             thermo_dict[echem_TS] = G_TS
 
         return thermo_dict

@@ -196,6 +196,7 @@ class GeneralizedLinearScaler(ScalerBase):
                     m,b = catmap.functions.linear_regression(x,y)
                 else:
                     raise ValueError('Invalid params')
+
             return [m,b],[m*ci for ci in coeffs] + [b]
 
         def initial_state_scaling(TS,params):

@@ -734,7 +734,7 @@ class ReactionModel:
                 TS = IS
             else:
                 IS,TS,FS = rxn
-            # ignore echemTS stuff - we'll make our fake TS in the parser module
+            # ignore echemTS stuff - we'll make our fake TS in self.generate_echem_TS()
             if 'echemTS' in TS[0]:
                 pass
             else:
@@ -1018,9 +1018,9 @@ class ReactionModel:
         f.close()
 
     def generate_echem_TS(self):
-        """takes a self.echem_transition_state_names of the form echemTS-X-Y_a, where
-        X is the reaction index and Y is the electrochemical barrier at rxn dE=0 in eV,
-        and a is the site name, and generates a species_definitions entry for it"""
+        """generates fake transition state species from self.echem_transition_state_names
+        and populates self.species_definitions with them.
+        """
         for echem_TS in self.echem_transition_state_names:
             preamble, site = echem_TS.split('_')
             echem, rxn_index, barrier = preamble.split('-')
