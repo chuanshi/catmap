@@ -593,7 +593,8 @@ class ScalingPlot:
 
     def plot(self,ax_list=None,plot_size=4.0,save=None):
         all_ads = self.adsorbate_names + self.transition_state_names
-        all_ads = [a for a in all_ads if a in self.parameter_dict.keys()]
+        all_ads = [a for a in all_ads if a in self.parameter_dict.keys() and
+            a not in self.echem_transition_state_names]
         if self.include_empty:
             ads_names = all_ads
         else:

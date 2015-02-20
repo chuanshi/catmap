@@ -497,11 +497,10 @@ class ThermoCorrections(ReactionModelWrapper):
     def hbond_electrochemical(self):
         thermo_dict = self.simple_electrochemical()
         TS_names = [TS for TS in self.transition_state_names if 'pe' in TS]
-
         hbond_dict = self.hbond_dict
 
         # updates simple_electrochemical with hbonding corrections as if they were on Pt(111)
-        for ads in list(adsorbate_names) + TS_names:
+        for ads in list(self.adsorbate_names) + TS_names:
             if ads in hbond_dict:
                 if ads in thermo_dict:
                     thermo_dict[ads] += hbond_dict[ads]
@@ -537,10 +536,9 @@ class ThermoCorrections(ReactionModelWrapper):
 
     def hbond_with_estimates_electrochemical(self):
         thermo_dict = self.hbond_electrochemical()
-        adsorbate_names = self.adsorbate_names
         TS_names = [TS for TS in self.transition_state_names if 'pe' in TS]
 
-        for ads in list(adsorbate_names) + TS_names:
+        for ads in list(self.adsorbate_names) + TS_names:
             if ads not in hbond_dict:
                 if ads in thermo_dict:
                     thermo_dict[ads] += estimate_hbond_corr(ads)
