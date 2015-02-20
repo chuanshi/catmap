@@ -441,6 +441,19 @@ class ReactionModel:
                         except:
                             raise ValueError('improper specification of electrochemical transition state.  should be\
                                 of the form "^0.6eV_a" for an 0.6 eV barrier on site a')
+                    elif key == 'transition_state' and len(state_strings) == 1 and state_strings[0].startswith('echemTS'):
+                        try:
+                            echem_TS = state_strings[0]
+                            preamble, site = echem_TS.split('_')
+                            echem, i, barrier = preamble.split('-')
+                            i = int(i)
+                            assert(rxn_index == i)
+                            barrier = float(barrier)
+                            echem_transition_state_names.append(echem_TS)
+                            continue
+                        except:
+                            raise ValueError('improper specification of electrochemical transition state.  should be\
+                                of the form "echemTS-10-0.6_a" for an 0.6 eV barrier on site a for rxn 10')
                     for st in state_strings:
                         species_dict = functions.match_regex(st,
                                 *regular_expressions['species_definition'])
@@ -738,23 +751,22 @@ class ReactionModel:
                 TS = IS
             else:
                 IS,TS,FS = rxn
-            # ignore echemTS stuff - we'll make our fake TS in self.generate_echem_TS()
+            # ignore composition checking for echemTS stuff
             if 'echemTS' in TS[0]:
+                TS = IS
+            if composition(IS) == composition(TS) == composition(FS):
                 pass
             else:
-                if composition(IS) == composition(TS) == composition(FS):
-                    pass
-                else:
-                    raise ValueError('Mass balance is not satisfied for ' + \
-                            self.print_rxn(rxn,mode='text'))
-                if composition(IS,'sites') == composition(TS,'sites') == \
-                        composition(FS,'sites'):
-                    pass
-                else:
-                    raise ValueError('Site balance is not satisfied for ' + \
-                            self.print_rxn(rxn,mode='text')+'. Make sure to '+\
-                            'set n_sites in species_definitions for species '+\
-                            'occupying more than 1 site')
+                raise ValueError('Mass balance is not satisfied for ' + \
+                        self.print_rxn(rxn,mode='text'))
+            if composition(IS,'sites') == composition(TS,'sites') == \
+                    composition(FS,'sites'):
+                pass
+            else:
+                raise ValueError('Site balance is not satisfied for ' + \
+                        self.print_rxn(rxn,mode='text')+'. Make sure to '+\
+                        'set n_sites in species_definitions for species '+\
+                        'occupying more than 1 site')
         #Check that frequencies are defined if necessary
 
         #Check prefactor_list is in the right format
@@ -1054,6 +1066,7 @@ class ReactionModel:
                         total_composition[key] += value
                     else:
                         total_composition[key] = value
+            self.species_definitions[echem_TS]['composition'] = total_composition
 
         # add echem TSs to regular TSes
         # print self.transition_state_names, self.echem_transition_state_names
