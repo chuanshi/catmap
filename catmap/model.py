@@ -1069,5 +1069,4 @@ class ReactionModel:
             self.species_definitions[echem_TS]['composition'] = total_composition
 
         # add echem TSs to regular TSes
-        # print self.transition_state_names, self.echem_transition_state_names
         self.transition_state_names += tuple(self.echem_transition_state_names)
