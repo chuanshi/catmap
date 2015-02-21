@@ -1061,12 +1061,8 @@ class ReactionModel:
             # assume composition is already balanced - set TS composition to IS composition
             total_composition = {}
             for species in IS_species:
-                for key, value in self.species_definitions[species]['composition'].iteritems():
-                    if key in total_composition:
-                        total_composition[key] += value
-                    else:
-                        total_composition[key] = value
+                total_composition = functions.add_dicts(total_composition, self.species_definitions[species]['composition'])
             self.species_definitions[echem_TS]['composition'] = total_composition
 
-        # add echem TSs to regular TSes
+        # add echem TSs to regular TSes - this might be more trouble than it's worth
         self.transition_state_names += tuple(self.echem_transition_state_names)
