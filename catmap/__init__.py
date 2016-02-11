@@ -13,7 +13,12 @@ import numpy as np
 try:
     from scipy.interpolate import InterpolatedUnivariateSpline as spline
 except ImportError:
-    spline = None
+    def spline_wrapper(x_data, y_data, k=3):  # input kwarg k is intentionally ignored
+        # behaves like scipy.interpolate.InterpolatedUnivariateSpline for k=1
+        def spline_func(x):
+            return numpy.interp(x, x_data, y_data)
+        return spline_func
+    spline = spline_wrapper
     
 import matplotlib as mpl
 mpl.use('Agg')
