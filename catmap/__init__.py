@@ -16,7 +16,7 @@ except ImportError:
     def spline_wrapper(x_data, y_data, k=3):  # input kwarg k is intentionally ignored
         # behaves like scipy.interpolate.InterpolatedUnivariateSpline for k=1
         def spline_func(x):
-            return numpy.interp(x, x_data, y_data)
+            return np.interp(x, map(float,x_data), map(float,y_data))  # loss of precision here
         return spline_func
     spline = spline_wrapper
     
